@@ -16,7 +16,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
+      # Full history: moon compares against the default branch.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: xmllint
         run: sudo apt-get update && sudo apt-get install -y libxml2-utils
