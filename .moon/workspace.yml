@@ -1,0 +1,9 @@
+$schema: "https://moonrepo.dev/schemas/workspace.json"
+
+projects:
+  dualsubs: "."
+
+vcs:
+  client: "git"
+  defaultBranch: "main"
+  provider: "github"

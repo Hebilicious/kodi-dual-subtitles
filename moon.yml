@@ -1,0 +1,20 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+layer: application
+
+tasks:
+  # Unit tests (no Kodi needed), the add-on's Python compiles, its XML parses, the scripts are valid.
+  check:
+    script: "python -m unittest discover -s tests && python -m compileall -q script.dualsubtitles && xmllint --noout script.dualsubtitles/addon.xml script.dualsubtitles/resources/settings.xml && bash -n build.sh kodi-test/kodi.sh kodi-test/verify.sh"
+    inputs: ["script.dualsubtitles/**/*", "tests/**/*", "build.sh", "kodi-test/*.sh"]
+  # dist/script.dualsubtitles-<version>.zip, with the fonts and the Thai dictionary.
+  build:
+    command: "bash build.sh"
+    inputs: ["script.dualsubtitles/**/*", "build.sh"]
+    outputs: ["dist/*.zip"]
+  # The add-on in a real Kodi, headless (kodi-test/verify.sh; README.md lists what it needs).
+  verify:
+    command: "bash kodi-test/verify.sh"
+    options:
+      cache: false
+      runInCI: false

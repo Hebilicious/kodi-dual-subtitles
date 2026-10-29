@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<settings version="1">
+  <section id="script.dualsubtitles">
+    <category id="sources" label="30100">
+      <group id="jellyfin" label="30101">
+        <setting id="jellyfin_url" type="string" label="30102" help="30103">
+          <level>0</level>
+          <default/>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30102</heading></control>
+        </setting>
+        <setting id="jellyfin_api_key" type="string" label="30104" help="30105">
+          <level>0</level>
+          <default/>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30104</heading><hidden>true</hidden></control>
+        </setting>
+        <setting id="fetch_timeout" type="integer" label="30106" help="30107">
+          <level>2</level>
+          <default>600</default>
+          <constraints><minimum>30</minimum><step>30</step><maximum>1800</maximum></constraints>
+          <control type="spinner" format="integer"/>
+        </setting>
+      </group>
+      <group id="bazarr" label="30110">
+        <setting id="bazarr_url" type="string" label="30111" help="30112">
+          <level>0</level>
+          <default/>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30111</heading></control>
+        </setting>
+        <setting id="bazarr_api_key" type="string" label="30113">
+          <level>0</level>
+          <default/>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30113</heading><hidden>true</hidden></control>
+        </setting>
+      </group>
+    </category>
+    <category id="choice" label="30200">
+      <group id="defaults" label="30201">
+        <setting id="auto_apply" type="boolean" label="30202" help="30203">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="primary_languages" type="string" label="30204" help="30205">
+          <level>0</level>
+          <default>en</default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30204</heading></control>
+        </setting>
+        <setting id="secondary_languages" type="string" label="30206" help="30207">
+          <level>0</level>
+          <default>th</default>
+          <constraints><allowempty>true</allowempty></constraints>
+          <control type="edit" format="string"><heading>30206</heading></control>
+        </setting>
+        <setting id="layout" type="string" label="30208">
+          <level>0</level>
+          <default>stacked</default>
+          <constraints>
+            <options>
+              <option label="30210">stacked</option>
+              <option label="30209">top-bottom</option>
+              <option label="30211">primary-only</option>
+            </options>
+          </constraints>
+          <control type="list" format="string"><heading>30208</heading></control>
+        </setting>
+        <setting id="primary_keep_styling" type="boolean" label="30212" help="30213">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+        <setting id="long_press" type="boolean" label="30214" help="30215">
+          <level>0</level>
+          <default>true</default>
+          <control type="toggle"/>
+        </setting>
+      </group>
+    </category>
+    <category id="style" label="30300">
+      <group id="primary" label="30301">
+        <setting id="primary_size" type="integer" label="30310">
+          <level>0</level>
+          <default>56</default>
+          <constraints><minimum>24</minimum><step>2</step><maximum>120</maximum></constraints>
+          <control type="spinner" format="integer"/>
+        </setting>
+        <setting id="primary_colour" type="string" label="30311">
+          <level>0</level>
+          <default>BFBFBF</default>
+          <constraints>
+            <options>
+              <option label="30320">BFBFBF</option>
+              <option label="30321">D9D9D9</option>
+              <option label="30322">FFFFFF</option>
+              <option label="30323">E6D88C</option>
+              <option label="30324">A8D8E6</option>
+            </options>
+          </constraints>
+          <control type="list" format="string"><heading>30311</heading></control>
+        </setting>
+        <setting id="primary_outline" type="number" label="30312">
+          <level>0</level>
+          <default>2.5</default>
+          <constraints><minimum>0</minimum><step>0.5</step><maximum>8</maximum></constraints>
+          <control type="spinner" format="number"/>
+        </setting>
+        <setting id="primary_margin" type="integer" label="30313">
+          <level>0</level>
+          <default>50</default>
+          <constraints><minimum>0</minimum><step>10</step><maximum>400</maximum></constraints>
+          <control type="spinner" format="integer"/>
+        </setting>
+      </group>
+      <group id="secondary" label="30302">
+        <setting id="secondary_size" type="integer" label="30310">
+          <level>0</level>
+          <default>50</default>
+          <constraints><minimum>24</minimum><step>2</step><maximum>120</maximum></constraints>
+          <control type="spinner" format="integer"/>
+        </setting>
+        <setting id="secondary_colour" type="string" label="30311">
+          <level>0</level>
+          <default>BFBFBF</default>
+          <constraints>
+            <options>
+              <option label="30320">BFBFBF</option>
+              <option label="30321">D9D9D9</option>
+              <option label="30322">FFFFFF</option>
+              <option label="30323">E6D88C</option>
+              <option label="30324">A8D8E6</option>
+            </options>
+          </constraints>
+          <control type="list" format="string"><heading>30311</heading></control>
+        </setting>
+        <setting id="secondary_outline" type="number" label="30312">
+          <level>0</level>
+          <default>2.5</default>
+          <constraints><minimum>0</minimum><step>0.5</step><maximum>8</maximum></constraints>
+          <control type="spinner" format="number"/>
+        </setting>
+        <setting id="secondary_margin" type="integer" label="30313">
+          <level>0</level>
+          <default>50</default>
+          <constraints><minimum>0</minimum><step>10</step><maximum>400</maximum></constraints>
+          <control type="spinner" format="integer"/>
+        </setting>
+      </group>
+    </category>
+  </section>
+</settings>

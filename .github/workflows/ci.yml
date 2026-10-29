@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: xmllint
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
+      - uses: ./.github/actions/toolchains
+
+      - run: moon run dualsubs:check dualsubs:build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: script.dualsubtitles
+          path: dist/*.zip

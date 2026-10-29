@@ -1,0 +1,166 @@
+# Kodi Media Center language file
+# Addon id: script.dualsubtitles
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en_GB\n"
+
+msgctxt "#30100"
+msgid "Sources"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Jellyfin"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Server address"
+msgstr ""
+
+msgctxt "#30103"
+msgid "Where the subtitle tracks of the video playing come from. Leave empty to use only the files next to the video."
+msgstr ""
+
+msgctxt "#30104"
+msgid "API key"
+msgstr ""
+
+msgctxt "#30105"
+msgid "A Jellyfin API key (Dashboard > API keys)."
+msgstr ""
+
+msgctxt "#30106"
+msgid "Download time limit (seconds)"
+msgstr ""
+
+msgctxt "#30107"
+msgid "The first download of a track inside the video makes Jellyfin read the whole file, which takes minutes for a big one."
+msgstr ""
+
+msgctxt "#30110"
+msgid "Bazarr (sync to audio)"
+msgstr ""
+
+msgctxt "#30111"
+msgid "Bazarr address"
+msgstr ""
+
+msgctxt "#30112"
+msgid "For \"Sync to the audio\". Leave empty if Bazarr can't be reached from this TV."
+msgstr ""
+
+msgctxt "#30113"
+msgid "Bazarr API key"
+msgstr ""
+
+msgctxt "#30200"
+msgid "Choice"
+msgstr ""
+
+msgctxt "#30201"
+msgid "Defaults"
+msgstr ""
+
+msgctxt "#30202"
+msgid "Show two tracks when a video starts"
+msgstr ""
+
+msgctxt "#30203"
+msgid "Uses the pair remembered for the show or film, or else the languages below."
+msgstr ""
+
+msgctxt "#30204"
+msgid "Primary languages, in order"
+msgstr ""
+
+msgctxt "#30205"
+msgid "Codes or names separated by commas, e.g. \"en, ja\". The first one the video has is used."
+msgstr ""
+
+msgctxt "#30206"
+msgid "Secondary languages, in order"
+msgstr ""
+
+msgctxt "#30207"
+msgid "Codes or names separated by commas, e.g. \"th\". Empty for one track only."
+msgstr ""
+
+msgctxt "#30208"
+msgid "Layout"
+msgstr ""
+
+msgctxt "#30209"
+msgid "Secondary on top, primary at the bottom"
+msgstr ""
+
+msgctxt "#30210"
+msgid "Both at the bottom, secondary above"
+msgstr ""
+
+msgctxt "#30211"
+msgid "Primary only"
+msgstr ""
+
+msgctxt "#30212"
+msgid "Keep a styled (ASS) primary track's own styling"
+msgstr ""
+
+msgctxt "#30213"
+msgid "Signs and karaoke stay as the release drew them. The secondary track is always plain dialogue."
+msgstr ""
+
+msgctxt "#30214"
+msgid "Open with a long press of Subtitle, Menu, C or L"
+msgstr ""
+
+msgctxt "#30215"
+msgid "During playback. The add-on is also in Add-ons > Programs, and can be mapped to any key with RunScript(script.dualsubtitles)."
+msgstr ""
+
+msgctxt "#30300"
+msgid "Style"
+msgstr ""
+
+msgctxt "#30301"
+msgid "Primary track"
+msgstr ""
+
+msgctxt "#30302"
+msgid "Secondary track"
+msgstr ""
+
+msgctxt "#30310"
+msgid "Font size (pixels at 1080 lines)"
+msgstr ""
+
+msgctxt "#30311"
+msgid "Colour"
+msgstr ""
+
+msgctxt "#30312"
+msgid "Outline"
+msgstr ""
+
+msgctxt "#30313"
+msgid "Distance from the edge (pixels at 1080 lines)"
+msgstr ""
+
+msgctxt "#30320"
+msgid "Light grey (75 %, best for HDR)"
+msgstr ""
+
+msgctxt "#30321"
+msgid "Lighter grey (85 %)"
+msgstr ""
+
+msgctxt "#30322"
+msgid "White"
+msgstr ""
+
+msgctxt "#30323"
+msgid "Pale yellow"
+msgstr ""
+
+msgctxt "#30324"
+msgid "Pale blue"
+msgstr ""

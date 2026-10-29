@@ -1,0 +1,15 @@
+name: Toolchains
+description: Install the toolchains pinned in .prototools through proto and moon.
+
+runs:
+  using: composite
+  steps:
+    - uses: moonrepo/setup-toolchain@v0
+      with:
+        auto-install: true
+
+    - name: Show resolved tool versions
+      shell: bash
+      run: |
+        moon --version
+        python --version
