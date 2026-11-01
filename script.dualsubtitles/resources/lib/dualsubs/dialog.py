@@ -1,5 +1,6 @@
 """The "Subtitles" dialog during playback (F1): lists, D-pad only, every change applied live."""
 
+import xbmc
 import xbmcgui
 
 from . import languages
@@ -17,6 +18,15 @@ def seconds(ms):
     return "%+.1f s" % (ms / 1000.0)
 
 
+KODI_SETTINGS = "Kodi's subtitle settings…"
+
+
+def open_kodi_settings():
+    """Opens Kodi's subtitle dialog; False closes this menu, which would otherwise stay over it."""
+    xbmc.executebuiltin("ActivateWindow(osdsubtitlesettings)")
+    return False
+
+
 class Dialog:
     def __init__(self, kodi):
         self.kodi = kodi
@@ -29,8 +39,11 @@ class Dialog:
             self.ui.ok("Dual subtitles", "Start a video first, then open this during playback.")
             return
         if not session.tracks:
-            lines = ["This video has no subtitle tracks the add-on can find."] + session.warnings
-            self.ui.ok("Dual subtitles", "[CR]".join(lines))
+            # Kodi's own subtitles may still have something (a search, an image track), so they stay one press away.
+            items = [KODI_SETTINGS] + ["[COLOR grey]%s[/COLOR]" % line for line in
+                                       ["This video has no subtitle tracks the add-on can find."] + session.warnings]
+            if self.ui.select("Dual subtitles", items) == 0:
+                open_kodi_settings()
             return
         if not session.primary_key:
             session.choose()
@@ -83,6 +96,9 @@ class Dialog:
                                 lambda track=track: self._sync(session, track)))
         if session.active:
             entries.append(("Turn dual subtitles off", lambda: self._off(session)))
+        # Kodi's own dialog (one track, search and download, its appearance), for a skin whose subtitle button
+        # opens this one instead.
+        entries.append((KODI_SETTINGS, open_kodi_settings))
         for warning in session.warnings + self._kodi_warnings():
             entries.append(("[COLOR grey]%s[/COLOR]" % warning, lambda: None))
         return entries

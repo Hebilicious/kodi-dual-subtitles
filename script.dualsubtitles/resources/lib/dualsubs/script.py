@@ -14,6 +14,7 @@ window property ``DualSubtitles.Status`` as JSON (read it with ``XBMC.GetInfoLab
 
 import sys
 import time
+import traceback
 
 import xbmc
 
@@ -89,6 +90,9 @@ def agent_apply(kodi, args):
     except (TrackError, Superseded) as error:
         kodi.log(str(error), xbmc.LOGWARNING)
         kodi.set_status({"state": "error", "message": str(error), "time": int(time.time())})
+    except Exception as error:  # anything else still answers the caller, which waits for a status
+        kodi.log("applying failed: %s" % traceback.format_exc(), xbmc.LOGERROR)
+        kodi.set_status({"state": "error", "message": "the add-on failed: %s" % error, "time": int(time.time())})
 
 
 def agent_sync(kodi, role):

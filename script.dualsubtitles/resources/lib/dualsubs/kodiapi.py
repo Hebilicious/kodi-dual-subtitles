@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 
 import xbmc
 import xbmcaddon
@@ -95,6 +96,10 @@ class Kodi:
                                       seconds * 1000)
 
     def set_status(self, status):
+        """Every status carries the time it was written: a caller waits for one newer than its request, and a
+        status without it (an error) was never seen as an answer."""
+        status = dict(status)
+        status.setdefault("time", int(time.time()))
         xbmcgui.Window(10000).setProperty(STATUS_PROPERTY, json.dumps(status, ensure_ascii=False))
 
     def json_rpc(self, method, params=None):

@@ -45,7 +45,9 @@ file. Then, in the add-on's settings (Add-ons → My add-ons → Programs → Du
   The list sets the primary and secondary tracks, swaps them, picks the layout, nudges each
   track's timing by ±0.1 s or ±1 s, switches a styled (ASS) primary between its own styling and
   plain dialogue, opens the style settings, and asks Bazarr to sync a track to the audio. Each
-  change shows at once, without restarting the video.
+  change shows at once, without restarting the video. Its last entry, **Kodi's subtitle
+  settings…**, opens Kodi's own dialog (one track, search and download), so a skin can point its
+  player's subtitle button at `RunScript(script.dualsubtitles)` and lose nothing.
 - ▶️ **When a video starts**, the pair remembered for its show or film is applied, or else the
   default languages, with a short notice ("Thai + English").
 - 🤖 **Scripts and agents** use Kodi's JSON-RPC after starting playback:
@@ -61,7 +63,8 @@ file. Then, in the add-on's settings (Add-ons → My add-ons → Programs → Du
   `sync` with `track: "primary"` or `"secondary"`. The result is JSON in the Home window property
   `DualSubtitles.Status`; read it with `XBMC.GetInfoLabels` and the label
   `Window(Home).Property(DualSubtitles.Status)`. Its `state` is `applied`, `error` (with a
-  `message`), `synced`, `working` or `off`.
+  `message`), `synced`, `working` or `off`, and every status has a `time` (Unix seconds): wait for
+  one newer than your call, which is how a caller knows it is the answer.
 
 ## ⚙️ How it works
 
