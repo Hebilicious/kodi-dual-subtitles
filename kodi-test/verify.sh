@@ -168,6 +168,14 @@ else
   step "Jellyfin checks skipped (set JELLYFIN_URL, JELLYFIN_API_KEY and JELLYFIN_ITEM_ID)"
 fi
 
+step "Nothing playing: the call is still answered, with its time"
+rpc Player.Stop '{"playerid":1}' || true
+sleep 1
+asked=$(date +%s)
+apply '{"primary":"en","secondary":"th"}'
+wait_for ".state == \"error\" and .time >= $asked" 75  # the add-on waits up to 60 s for a video to start
+check "error with the time of the answer" ".state == \"error\" and (.message | test(\"nothing is playing\")) and .time >= $asked"
+
 step "Build time in Kodi's log"
 "$kodi" log "applied" | sed -E 's/.*\] //' | tail -8
 
