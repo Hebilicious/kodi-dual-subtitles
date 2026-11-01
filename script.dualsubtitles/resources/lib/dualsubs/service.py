@@ -3,6 +3,8 @@ video starts (F5)."""
 
 import os
 import shutil
+import threading
+import time
 
 import xbmc
 import xbmcvfs
@@ -11,6 +13,12 @@ from .kodiapi import ADDON_ID, Kodi
 from .session import NotPlaying, Session, Superseded, TrackError
 
 FONTS_DIR = "special://home/media/Fonts/"
+# Other add-ons pick a subtitle stream in the first seconds of playback (Jellyfin for Kodi selects the
+# server's default one about a second after the video starts), which would replace ours. For this long
+# after a video starts, ours is selected again; after it, a stream the viewer picks stays.
+GUARD_SECONDS = 20
+# The name Kodi gives the generated file's stream ("Dual subtitles 3 (External)").
+STREAM_PREFIX = "Dual subtitles "
 KEYMAP = "special://profile/keymaps/%s.xml" % ADDON_ID
 # Long press of the keys that already deal with subtitles or menus during playback.
 KEYMAP_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -86,11 +94,38 @@ def auto_apply(kodi):
             return
         session.apply(progress=kodi.notify)
         kodi.notify(session.describe())
+        threading.Thread(target=keep_ours, args=(kodi, session.playing), daemon=True).start()
     except (NotPlaying, Superseded) as reason:
         kodi.log("not applied: %s" % reason)
     except TrackError as error:
         kodi.log(str(error), xbmc.LOGWARNING)
         kodi.notify(str(error), seconds=8)
+
+
+def keep_ours(kodi, playing, seconds=GUARD_SECONDS):
+    """Select the generated stream again whenever another add-on switches away from it."""
+    monitor = xbmc.Monitor()
+    deadline = time.time() + seconds
+    while time.time() < deadline and not monitor.waitForAbort(0.5):
+        if kodi.playing_file() != playing:
+            return
+        try:
+            session = Session.current(kodi)
+        except NotPlaying:
+            return
+        if not session.active:
+            return  # turned off meanwhile
+        properties = kodi.json_rpc("Player.GetProperties", {
+            "playerid": 1, "properties": ["currentsubtitle", "subtitleenabled", "subtitles"]}) or {}
+        ours = [s for s in properties.get("subtitles", []) if s.get("name", "").startswith(STREAM_PREFIX)]
+        if not ours:
+            continue
+        current = properties.get("currentsubtitle") or {}
+        if current.get("index") == ours[-1]["index"] and properties.get("subtitleenabled"):
+            continue
+        kodi.json_rpc("Player.SetSubtitle", {"playerid": 1, "subtitle": ours[-1]["index"], "enable": True})
+        kodi.log("selected the dual subtitles again: another add-on had switched to \"%s\""
+                 % (current.get("name") or current.get("language") or current.get("index")))
 
 
 class Player(xbmc.Player):
