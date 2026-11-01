@@ -19,6 +19,9 @@ def seconds(ms):
 
 
 KODI_SETTINGS = "Kodi's subtitle settings…"
+# Set on the Home window while a menu is open. Kodi has one select dialog: two menus at once (a double
+# press) shared it, answered each other's choices and kept applying with no key pressed.
+OPEN_PROPERTY = "DualSubtitles.MenuOpen"
 
 
 def open_kodi_settings():
@@ -33,6 +36,17 @@ class Dialog:
         self.ui = xbmcgui.Dialog()
 
     def run(self):
+        home = xbmcgui.Window(10000)
+        if home.getProperty(OPEN_PROPERTY):
+            self.kodi.log("the menu is already open")
+            return
+        home.setProperty(OPEN_PROPERTY, "1")
+        try:
+            self._run()
+        finally:
+            home.clearProperty(OPEN_PROPERTY)
+
+    def _run(self):
         try:
             session = Session.current(self.kodi)
         except NotPlaying:

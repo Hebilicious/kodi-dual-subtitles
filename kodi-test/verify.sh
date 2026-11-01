@@ -102,6 +102,27 @@ rpc Input.Back; sleep 0.7
 rpc Input.Back; sleep 1
 check "secondary offset +1 s, primary untouched" '.secondary.offset_ms == 1000 and .primary.offset_ms == 0'
 
+step "Menu opened twice (a double press): one menu, and its Kodi's subtitle settings entry opens them"
+# Kodi has one select dialog: two menus at once answered each other's choices and kept applying, with no key pressed.
+applied_before=$("$kodi" log "applied" | wc -l)
+rpc Addons.ExecuteAddon '{"addonid":"script.dualsubtitles"}'
+rpc Addons.ExecuteAddon '{"addonid":"script.dualsubtitles"}'
+sleep 3
+for _ in $(seq 1 15); do
+  [[ $("$kodi" rpc XBMC.GetInfoLabels '{"labels":["System.CurrentControl"]}' | jq -r '.result["System.CurrentControl"]') == "Kodi's subtitle settings…" ]] && break
+  rpc Input.Down; sleep 0.3
+done
+rpc Input.Select; sleep 4
+window=$("$kodi" rpc GUI.GetProperties '{"properties":["currentwindow"]}' | jq -r .result.currentwindow.id)
+applied_after=$("$kodi" log "applied" | wc -l)
+if [[ $window == 10159 ]] && ((applied_after == applied_before)); then
+  echo "ok   Kodi's subtitle settings open, nothing applied meanwhile"
+else
+  echo "FAIL window $window (Kodi's subtitle settings are 10159), applied $((applied_after - applied_before)) times with no key pressed"
+  failures=$((failures + 1))
+fi
+for _ in 1 2 3 4; do rpc Input.Back; sleep 0.5; done
+
 step "Same video again: pair, layout and offset remembered"
 play "$clip"
 wait_for '.state == "applied"' 30

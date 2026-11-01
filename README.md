@@ -47,7 +47,8 @@ file. Then, in the add-on's settings (Add-ons → My add-ons → Programs → Du
   plain dialogue, opens the style settings, and asks Bazarr to sync a track to the audio. Each
   change shows at once, without restarting the video. Its last entry, **Kodi's subtitle
   settings…**, opens Kodi's own dialog (one track, search and download), so a skin can point its
-  player's subtitle button at `RunScript(script.dualsubtitles)` and lose nothing.
+  player's subtitle button at `RunScript(script.dualsubtitles)` and lose nothing. Opening it again while it is open
+  does nothing.
 - ▶️ **When a video starts**, the pair remembered for its show or film is applied, or else the
   default languages, with a short notice ("Thai + English").
 - 🤖 **Scripts and agents** use Kodi's JSON-RPC after starting playback:
