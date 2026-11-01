@@ -148,6 +148,12 @@
           <constraints><minimum>0</minimum><step>10</step><maximum>400</maximum></constraints>
           <control type="spinner" format="integer"/>
         </setting>
+        <setting id="secondary_gap" type="integer" label="30325">
+          <level>0</level>
+          <default>14</default>
+          <constraints><minimum>-40</minimum><step>2</step><maximum>200</maximum></constraints>
+          <control type="spinner" format="integer"/>
+        </setting>
       </group>
     </category>
   </section>

@@ -163,6 +163,13 @@ class AssFileTest(unittest.TestCase):
         self.assertGreater(one_line, 50)
         self.assertGreater(two_lines, one_line)
 
+    def test_stacked_gap_moves_secondary_closer(self):
+        def margin(gap):
+            text = assfile.build(assfile.Layer(self.en, assfile.TrackStyle()),
+                                 assfile.Layer(self.th, assfile.TrackStyle(gap=gap)), layout="stacked")
+            return int([e for e in self.events(text) if ",Secondary," in e][0].split(",")[7])
+        self.assertEqual(margin(14) - margin(0), 14)
+
     def test_primary_only(self):
         text = assfile.build(assfile.Layer(self.en, assfile.TrackStyle()),
                              assfile.Layer(self.th, assfile.TrackStyle()), layout="primary-only")

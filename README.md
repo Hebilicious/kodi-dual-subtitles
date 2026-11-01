@@ -35,7 +35,7 @@ file. Then, in the add-on's settings (Add-ons → My add-ons → Programs → Du
 | 🪼 Jellyfin server address and API key | Where the tracks of the video playing come from (Dashboard → API keys). Leave empty to use only the files next to the video |
 | 🌐 Primary and secondary languages | Defaults, in order of preference: `en` and `th`. Codes or names, separated by commas |
 | 📐 Layout | Both at the bottom with the secondary above (default), secondary on top, or primary only |
-| 🎨 Style | Size, colour, outline and margin of each track. The default colour is a 75 % grey, which doesn't glare in HDR |
+| 🎨 Style | Size, colour, outline and margin of each track, and the space between them when both are at the bottom. The default colour is a 75 % grey, which doesn't glare in HDR |
 | 🔄 Bazarr address and API key | Optional, for "Sync to the audio". The Kodi device must reach Bazarr's web port |
 
 ## 🍿 Use

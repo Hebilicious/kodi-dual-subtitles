@@ -164,3 +164,7 @@ msgstr ""
 msgctxt "#30324"
 msgid "Pale blue"
 msgstr ""
+
+msgctxt "#30325"
+msgid "Space above the primary track when both are at the bottom (pixels at 1080 lines)"
+msgstr ""

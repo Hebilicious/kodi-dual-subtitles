@@ -39,6 +39,7 @@ class TrackStyle:
     shadow: float = 1.0
     margin_v: int = 50
     bold: bool = False
+    gap: int = 14  # stacked layout: space between this (secondary) track and the primary's top line
 
 
 @dataclass
@@ -231,8 +232,8 @@ class _PrimaryLines:
 
 def _above_primary(lines, primary_style, secondary_style, scale):
     """MarginV that puts a secondary cue just above that many primary lines."""
-    line_height = primary_style.size * 1.25 + primary_style.outline * 2
-    gap = secondary_style.size * 0.25
+    line_height = primary_style.size * 1.05 + primary_style.outline * 2  # libass draws a line in ~1.04 × the size
+    gap = secondary_style.gap
     return int(round((primary_style.margin_v + lines * line_height + gap) * scale))
 
 

@@ -242,6 +242,7 @@ class Session:
             colour=self.kodi.setting(prefix + "colour") or "BFBFBF",
             outline=float(self.kodi.setting(prefix + "outline") or 2.5),
             margin_v=int(self.kodi.setting(prefix + "margin") or 50),
+            gap=int(self.kodi.setting("secondary_gap") or 14),
         )
 
     def build(self, progress=None):
