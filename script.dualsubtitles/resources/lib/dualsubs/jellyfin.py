@@ -111,15 +111,13 @@ class Jellyfin:
                 source = candidate
                 break
         result = []
-        for stream in source.get("MediaStreams") or []:
-            if stream.get("Type") != "Subtitle":
-                continue
+        for key, stream in _subtitle_streams(source):
             codec = (stream.get("Codec") or "").lower()
             usable, reason = classify(codec)
             if usable and stream.get("IsTextSubtitleStream") is False:
                 usable, reason = False, "Jellyfin says this track isn't text"
             result.append(Track(
-                key="jellyfin:%s:%d" % (source.get("Id", ""), stream["Index"]),
+                key=key,
                 source="jellyfin",
                 language=languages.normalize(stream.get("Language")),
                 title=stream.get("Title") or "",
@@ -140,10 +138,37 @@ class Jellyfin:
         The first fetch of an embedded track makes Jellyfin read the whole video to extract it,
         which takes minutes for a big file; it is cached on the server afterwards.
         """
-        item_id, source_id, index = track.location.split("/")
+        item_id, source_id, _ = track.location.split("/")
+        index = self._current_index(item_id, source_id, track.key)
         fmt = "ass" if track.styled else "srt"
-        path = "/Videos/%s/%s/Subtitles/%s/0/Stream.%s" % (item_id, source_id, index, fmt)
+        path = "/Videos/%s/%s/Subtitles/%d/0/Stream.%s" % (item_id, source_id, index, fmt)
         return self._request(path, timeout=timeout, raw=True), fmt
+
+    def _current_index(self, item_id, source_id, key):
+        """The stream's index now: Jellyfin numbers external subtitles first, so one added since the
+        tracks were listed (Bazarr downloading a subtitle) moves every embedded track's index."""
+        info = self._request("/Items/%s/PlaybackInfo" % item_id)
+        for source in info.get("MediaSources") or []:
+            if source.get("Id") != source_id:
+                continue
+            for stream_key, stream in _subtitle_streams(source):
+                if stream_key == key:
+                    return stream["Index"]
+        raise JellyfinError("the track is no longer in Jellyfin")
+
+
+def _subtitle_streams(source):
+    """(key, stream) for each subtitle stream of a media source. The key names the track by what it
+    is (embedded or a file, language, title, codec), not by its index, which shifts."""
+    seen = {}
+    for stream in source.get("MediaStreams") or []:
+        if stream.get("Type") != "Subtitle":
+            continue
+        identity = "%s|%s|%s|%s" % (
+            "file:" + _basename(stream.get("Path", "")) if stream.get("IsExternal") else "embedded",
+            (stream.get("Language") or "").lower(), stream.get("Title") or "", (stream.get("Codec") or "").lower())
+        seen[identity] = seen.get(identity, 0) + 1
+        yield "jellyfin:%s:%s#%d" % (source.get("Id", ""), identity, seen[identity]), stream
 
 
 def _basename(path):

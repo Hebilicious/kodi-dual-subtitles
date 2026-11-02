@@ -39,6 +39,10 @@ class Dialog:
         home = xbmcgui.Window(10000)
         if home.getProperty(OPEN_PROPERTY):
             self.kodi.log("the menu is already open")
+            if not xbmc.getCondVisibility("Window.IsActive(selectdialog)"):
+                # The open menu is loading a track (a first extraction by Jellyfin takes minutes): say so,
+                # or the key seems dead.
+                self.kodi.notify("Still loading the subtitles, the menu comes back when they are ready")
             return
         home.setProperty(OPEN_PROPERTY, "1")
         try:
