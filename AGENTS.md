@@ -7,10 +7,9 @@ Kodi add-on showing two subtitle tracks at once. See @README.md and @docs/requir
 - Only `kodiapi.py`, `dialog.py`, `script.py` and `service.py` import Kodi modules; the rest stays unit-testable.
 - No addresses, keys or paths of a particular setup in code, defaults or tests.
 
-## Merging
+## Where changes come from
 
-"Merge" means the work is on `main` both locally and on `origin`: merge and push, or, with a pull
-request, merge it and pull. It is one step: never stop halfway, and never ask whether to do the
-second half. `main` and `origin/main` are always the same commit, whoever moved them: check before
-reporting a merge as done, and if you find them apart, sync them. A push refused because `origin`
-moved: rebase and push again, never force-push. Other branches are pushed only when asked.
+This repository is published from a private monorepo, and its commits are generated. A change made
+directly here stops the next publish, so pull requests are ported by a maintainer, not merged. In
+the monorepo, a commit that changes this project says what the public may read in a
+`<public>...</public>` section of its message; nothing else in the message leaves.
