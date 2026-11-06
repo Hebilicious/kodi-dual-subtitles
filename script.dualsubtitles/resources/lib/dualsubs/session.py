@@ -188,15 +188,24 @@ class Session:
         digest = hashlib.sha1((self.file_key + "|" + track.key).encode("utf-8")).hexdigest()[:16]
         return os.path.join(self.kodi.temp_dir, "cache", digest)
 
+    @staticmethod
+    def cacheable(track):
+        """Only a track Jellyfin extracts from the video is kept: that takes minutes, the video doesn't change, and the
+        track can't. A subtitle file is fetched again each time, in a moment: it may have been replaced (a better one
+        found, timing corrected) under the same name, and a kept copy would show the old one."""
+        return track.source == "jellyfin" and not track.external
+
     def load(self, track, progress=None):
-        """Parsed text of a track, fetched once per video and kept in Kodi's temp folder."""
+        """Parsed text of a track; one extracted from the video is fetched once and kept in Kodi's temp folder."""
         if not track.usable:
             raise TrackError("%s: %s" % (track.label(), track.reason))
         cache = self._cache_path(track)
-        cached = _read_json(cache + ".json")
+        cached = _read_json(cache + ".json") if self.cacheable(track) else {}
         if cached.get("key") == track.key and os.path.exists(cache + ".txt"):
             with open(cache + ".txt", encoding="utf-8") as handle:
                 text, fmt = handle.read(), cached.get("format", "")
+        elif not self.cacheable(track):
+            text, fmt = self._fetch(track, progress)
         else:
             text, fmt = self._fetch(track, progress)
             os.makedirs(os.path.dirname(cache), exist_ok=True)
