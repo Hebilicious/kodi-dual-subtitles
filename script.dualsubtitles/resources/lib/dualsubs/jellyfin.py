@@ -46,9 +46,19 @@ class Jellyfin:
         request = urllib.request.Request(url, method=method, headers={"Authorization": auth, "Accept": "*/*"})
         try:
             with urllib.request.urlopen(request, timeout=timeout or self.timeout) as response:
-                body = response.read(MAX_BYTES + 1)
-                if len(body) > MAX_BYTES:
-                    raise JellyfinError("subtitle response exceeds 8 MiB")
+                deadline = time.monotonic() + (timeout or self.timeout)
+                chunks, size = [], 0
+                while True:
+                    if time.monotonic() >= deadline:
+                        raise JellyfinError("subtitle file read exceeded its deadline")
+                    chunk = response.read1(min(65536, MAX_BYTES + 1 - size))
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    if size > MAX_BYTES:
+                        raise JellyfinError("subtitle response exceeds 8 MiB")
+                    chunks.append(chunk)
+                body = b"".join(chunks)
         except urllib.error.HTTPError as error:
             raise JellyfinError("Jellyfin answered %d for %s" % (error.code, path))
         except (urllib.error.URLError, OSError) as error:

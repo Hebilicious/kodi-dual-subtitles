@@ -23,8 +23,6 @@ from .dialog import Dialog
 from .kodiapi import Kodi
 from .session import NotPlaying, Session, Superseded, TrackError
 
-_WAIT_FOR_PLAYBACK = 0  # seconds an agent's call waits for the video it just started
-
 
 def parse_args(argv):
     """Kodi passes JSON-RPC params as "key=value" arguments; a "?a=b&c=d" string works too."""
@@ -71,10 +69,6 @@ def run(argv):
 
 def agent_apply(kodi, args):
     kodi.set_status({"state": "working", "time": int(time.time())})
-    monitor = xbmc.Monitor()
-    deadline = time.time() + _WAIT_FOR_PLAYBACK
-    while not kodi.playing_file() and time.time() < deadline and not monitor.abortRequested():
-        monitor.waitForAbort(0.5)
     primary = languages.normalize(args.get("primary", ""))
     secondary_arg = args.get("secondary", "")
     secondary = "" if secondary_arg.lower() in ("", "none", "off") else languages.normalize(secondary_arg)
