@@ -12,7 +12,7 @@ boxes, Android TV and webOS, so one Kodi add-on covers all of them.
 
 ## Goals
 
-1. Show any two subtitle tracks of what's playing at the same time, chosen during playback.
+1. Show any two already downloaded subtitle files of what's playing at the same time, chosen during playback.
 2. Each track keeps its own timing; no pre-merged files, no pairs decided ahead of time.
 3. The server never converts the video: the subtitles are drawn by Kodi, the video plays directly.
 4. Remember choices: a show's language pair and layout apply again on the next episode.
@@ -25,7 +25,7 @@ two tracks.
 
 | # | Requirement |
 |---|---|
-| F1 | A dialog during playback, opened by a key, lists the video's subtitle tracks (language, name, embedded or file, format). The viewer picks a **primary** and an optional **secondary** track with a D-pad only |
+| F1 | A dialog during playback, opened by a key, lists the video's ready independent subtitle files (language, name, provenance, format); embedded-only tracks are unavailable. The viewer picks a **primary** and an optional **secondary** track with a D-pad only |
 | F2 | Layouts: both at the bottom with the secondary above (default), secondary at the top and primary at the bottom, or primary only. Per track: font size, colour, outline, vertical margin |
 | F3 | Each track keeps its own cue timings, with an offset per track changed live in steps of 100 ms and 1 s |
 | F4 | Preferences per show or film, then a global default ordered by language. Offsets per file |
@@ -34,15 +34,18 @@ two tracks.
 | F7 | Thai and Japanese render correctly: the add-on ships fonts that cover both and doesn't depend on the skin's or the OS's |
 | F8 | Seek, pause, chapter jumps and audio-track changes keep both tracks in sync; changing a track doesn't restart playback |
 | F9 | A JSON-RPC entry point (`Addons.ExecuteAddon`) to set the pair, with the result readable afterwards |
-| F10 | "Sync to audio" asks Bazarr to re-sync a subtitle file on the server, then reloads it |
+| F10 | Only local timing offsets are available in Kodi; library maintenance is outside the player |
 | F11 | A track that can't be used (image subtitles, download failure) says why instead of failing silently |
 
 ## Sources
 
-1. **Jellyfin**: `GET /Items/{id}/PlaybackInfo` lists the subtitle streams, and Jellyfin serves any
-   text stream, embedded or external, as SRT or ASS
-   (`/Videos/{id}/{mediaSourceId}/Subtitles/{index}/0/Stream.ass`).
-2. **Files next to the video** (`Movie.th.srt`, `Subs/`), when playing without Jellyfin.
+1. **Jellyfin external files only**: existing SRT, ASS/SSA or WebVTT files. A live metadata
+   check verifies the track is still external before fetching its native format. Embedded tracks
+   and external containers such as MKS are unavailable. The add-on never triggers extraction.
+2. **Files next to the video** (`Movie.th.srt`, `Subs/`), also without Jellyfin.
+
+Both tracks must exist before applying a pair. Missing tracks fail promptly and leave the previous
+subtitles untouched. Obtain subtitles through download providers outside Kodi.
 
 ## Rendering
 
@@ -58,5 +61,5 @@ offset, loads it with `xbmc.Player().setSubtitles()`, and rebuilds it on every c
 
 - Kodi 21 (Omega) and later, pure Python, one package for every platform.
 - Building the file for a 2-hour film with two tracks: under 300 ms on a low-end TV box.
-- No network calls during playback once the tracks are loaded, except for F10.
+- No network calls for timing/layout/style changes after the files are loaded. Loading is bounded to three seconds, with no extraction requests.
 - Memory: under 30 MB above Kodi's own.

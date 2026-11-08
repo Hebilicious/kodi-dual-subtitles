@@ -136,16 +136,21 @@ class Player(xbmc.Player):
     def onAVStarted(self):
         if self.isPlayingVideo():
             kodi = self.service.kodi()
+            kodi.new_playback()
             if self.service.keymap_pending:
                 reload_keymaps(kodi)  # once more, in case the one at startup was dropped
                 self.service.keymap_pending = False
-            auto_apply(kodi)
+            threading.Thread(target=auto_apply, args=(kodi,), daemon=True).start()
 
     def onPlayBackStopped(self):
-        self.service.kodi().set_status({"state": "stopped"})
+        kodi = self.service.kodi()
+        kodi.new_playback()
+        kodi.set_status({"state": "stopped"})
 
     def onPlayBackEnded(self):
-        self.service.kodi().set_status({"state": "stopped"})
+        kodi = self.service.kodi()
+        kodi.new_playback()
+        kodi.set_status({"state": "stopped"})
 
 
 class Monitor(xbmc.Monitor):

@@ -168,23 +168,7 @@ if [[ -n ${JELLYFIN_URL:-} && -n ${JELLYFIN_API_KEY:-} && -n ${JELLYFIN_ITEM_ID:
     check "applied from Jellyfin" '.state == "applied" and (.primary.key | startswith("jellyfin:"))'
   fi
 
-  if [[ ${1:-} == --sync ]]; then
-    step "Sync to audio with Bazarr, the item's Thai file"
-    backup=""
-    if [[ -n ${SYNC_BACKUP:-} ]]; then
-      backup=$(mktemp)
-      cp "$SYNC_BACKUP" "$backup"
-    fi
-    apply '{"primary":"en","secondary":"th"}'
-    wait_for '.secondary.language == "th"' 30
-    apply '{"action":"sync","track":"secondary"}'
-    wait_for '.state == "synced" or .state == "error"' 300
-    check "Bazarr synced the Thai file and it was reloaded" '.state == "synced"'
-    if [[ -n $backup ]]; then
-      cp "$backup" "$SYNC_BACKUP"
-      rm -f "$backup"
-    fi
-  fi
+
 else
   step "Jellyfin checks skipped (set JELLYFIN_URL, JELLYFIN_API_KEY and JELLYFIN_ITEM_ID)"
 fi
@@ -194,7 +178,7 @@ rpc Player.Stop '{"playerid":1}' || true
 sleep 1
 asked=$(date +%s)
 apply '{"primary":"en","secondary":"th"}'
-wait_for ".state == \"error\" and .time >= $asked" 75  # the add-on waits up to 60 s for a video to start
+wait_for ".state == \"error\" and .time >= $asked" 5  # no playback wait or preparation
 check "error with the time of the answer" ".state == \"error\" and (.message | test(\"nothing is playing\")) and .time >= $asked"
 
 step "Build time in Kodi's log"

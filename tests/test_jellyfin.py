@@ -2,22 +2,13 @@ import os
 import sys
 import unittest
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "script.dualsubtitles", "resources", "lib"))
-
-from dualsubs.jellyfin import Jellyfin  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "script.dualsubtitles", "resources", "lib"))
+from dualsubs.jellyfin import Jellyfin, JellyfinError
 
 
-def stream(index, language, title, external=False, path=""):
-    return {"Index": index, "Type": "Subtitle", "Language": language, "Title": title, "Codec": "ass",
+def stream(index, external=False, path="", codec="subrip"):
+    return {"Index": index, "Type": "Subtitle", "Language": "eng", "Codec": codec,
             "IsExternal": external, "Path": path}
-
-
-EMBEDDED = [{"Index": 0, "Type": "Video"}, {"Index": 1, "Type": "Audio", "Language": "jpn"},
-            stream(2, "eng", "English"), stream(3, "ind", "Indonesian"), stream(4, "tha", "Thai")]
-# Jellyfin numbers external subtitles first: a file Bazarr adds moves every embedded track by one.
-WITH_FILE = [stream(0, "tha", None, external=True, path="/tv/Show/S01E01.th.srt")] + \
-    [dict(s, Index=s["Index"] + 1) for s in EMBEDDED]
 
 
 class FakeJellyfin(Jellyfin):
@@ -26,26 +17,44 @@ class FakeJellyfin(Jellyfin):
         self.streams = streams
         self.requested = []
 
-    def _request(self, path, query=None, timeout=None, raw=False, method="GET"):
+    def _request(self, path, **kwargs):
         self.requested.append(path)
         if path.endswith("/PlaybackInfo"):
             return {"MediaSources": [{"Id": "src", "MediaStreams": self.streams}]}
         return b"text"
 
 
-class TrackIndexTest(unittest.TestCase):
-    def test_fetch_follows_a_track_whose_index_moved(self):
-        server = FakeJellyfin(EMBEDDED)
-        thai = [t for t in server.tracks({"Id": "item"}) if t.language == "th"][0]
-        server.streams = WITH_FILE
-        server.fetch(thai)
-        self.assertEqual(server.requested[-1], "/Videos/item/src/Subtitles/5/0/Stream.ass")
+class PreparedFilesTest(unittest.TestCase):
+    def test_embedded_tracks_can_never_be_fetched_even_with_old_saved_usable_flag(self):
+        for codec in ("subrip", "ass", "ssa", "mov_text", "webvtt", "hdmv_pgs_subtitle"):
+            server = FakeJellyfin([stream(2, codec=codec)])
+            track = server.tracks({"Id": "item"})[0]
+            self.assertFalse(track.usable)
+            track.usable = True  # legacy session state must not bypass the load boundary
+            with self.assertRaises(JellyfinError):
+                server.fetch(track)
+            self.assertEqual(server.requested, ["/Items/item/PlaybackInfo"])
 
-    def test_keys_do_not_depend_on_indexes(self):
-        before = {t.key for t in FakeJellyfin(EMBEDDED).tracks({"Id": "item"})}
-        after = {t.key for t in FakeJellyfin(WITH_FILE).tracks({"Id": "item"})}
-        self.assertTrue(before < after)
+    def test_external_container_is_not_a_prepared_file(self):
+        server = FakeJellyfin([stream(0, True, "/media/movie.en.mks")])
+        self.assertFalse(server.tracks({"Id": "item"})[0].usable)
 
+    def test_external_file_is_served_in_native_format_after_index_moves(self):
+        server = FakeJellyfin([stream(0, True, "/media/movie.en.srt")])
+        track = server.tracks({"Id": "item"})[0]
+        server.streams[0]["Index"] = 4
+        self.assertEqual(server.fetch(track), (b"text", "srt"))
+        self.assertEqual(server.requested[-1], "/Videos/item/src/Subtitles/4/0/Stream.srt")
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_live_metadata_must_still_identify_an_external_file(self):
+        server = FakeJellyfin([stream(0, True, "/media/movie.en.srt")])
+        track = server.tracks({"Id": "item"})[0]
+        server.streams[0]["IsExternal"] = False
+        with self.assertRaises(JellyfinError):
+            server.fetch(track)
+        self.assertTrue(all(p.endswith("PlaybackInfo") for p in server.requested))
+
+    def test_styled_file_is_not_converted(self):
+        server = FakeJellyfin([stream(0, True, "/media/movie.en.ass", "ass")])
+        server.fetch(server.tracks({"Id": "item"})[0])
+        self.assertTrue(server.requested[-1].endswith("Stream.ass"))

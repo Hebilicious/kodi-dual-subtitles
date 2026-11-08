@@ -3,6 +3,7 @@
 import json
 import os
 import time
+import uuid
 
 import xbmc
 import xbmcaddon
@@ -45,6 +46,12 @@ class Kodi:
 
     # --- Player -----------------------------------------------------------------------------
 
+    def playback_id(self):
+        return xbmcgui.Window(10000).getProperty("DualSubtitles.Playback")
+
+    def new_playback(self):
+        xbmcgui.Window(10000).setProperty("DualSubtitles.Playback", uuid.uuid4().hex)
+
     def playing_file(self):
         if not self.player.isPlayingVideo():
             return ""
@@ -79,7 +86,7 @@ class Kodi:
     def read_file(self, path):
         handle = xbmcvfs.File(path)
         try:
-            data = handle.readBytes()
+            data = handle.readBytes(8 * 1024 * 1024 + 1)
         finally:
             handle.close()
         if not data and not xbmcvfs.exists(path):
@@ -100,6 +107,8 @@ class Kodi:
         status without it (an error) was never seen as an answer."""
         status = dict(status)
         status.setdefault("time", int(time.time()))
+        if getattr(self, "request_id", ""):
+            status["request_id"] = self.request_id
         xbmcgui.Window(10000).setProperty(STATUS_PROPERTY, json.dumps(status, ensure_ascii=False))
 
     def json_rpc(self, method, params=None):

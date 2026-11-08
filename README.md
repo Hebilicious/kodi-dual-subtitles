@@ -36,7 +36,6 @@ file. Then, in the add-on's settings (Add-ons → My add-ons → Programs → Du
 | 🌐 Primary and secondary languages | Defaults, in order of preference: `en` and `th`. Codes or names, separated by commas |
 | 📐 Layout | Both at the bottom with the secondary above (default), secondary on top, or primary only |
 | 🎨 Style | Size, colour, outline and margin of each track, and the space between them when both are at the bottom. The default colour is a 75 % grey, which doesn't glare in HDR |
-| 🔄 Bazarr address and API key | Optional, for "Sync to the audio". The Kodi device must reach Bazarr's web port |
 
 ## 🍿 Use
 
@@ -44,7 +43,7 @@ file. Then, in the add-on's settings (Add-ons → My add-ons → Programs → Du
   other key can map `RunScript(script.dualsubtitles)`; the add-on is also in Add-ons → Programs).
   The list sets the primary and secondary tracks, swaps them, picks the layout, nudges each
   track's timing by ±0.1 s or ±1 s, switches a styled (ASS) primary between its own styling and
-  plain dialogue, opens the style settings, and asks Bazarr to sync a track to the audio. Each
+  plain dialogue, opens the style settings, and uses only already downloaded files. Each
   change shows at once, without restarting the video. Its last entry, **Kodi's subtitle
   settings…**, opens Kodi's own dialog (one track, search and download), so a skin can point its
   player's subtitle button at `RunScript(script.dualsubtitles)` and lose nothing. Opening it again while it is open
@@ -60,12 +59,24 @@ file. Then, in the add-on's settings (Add-ons → My add-ons → Programs → Du
   ```
 
   `primary` and `secondary` are language codes or names (`secondary: "none"` for one track);
-  `layout` is `stacked`, `top-bottom` or `primary-only`; `action` can be `off`, `status`, or
-  `sync` with `track: "primary"` or `"secondary"`. The result is JSON in the Home window property
+  `layout` is `stacked`, `top-bottom` or `primary-only`; `action` can be `off`, `status`, or `refresh` to rediscover prepared files. The result is JSON in the Home window property
   `DualSubtitles.Status`; read it with `XBMC.GetInfoLabels` and the label
   `Window(Home).Property(DualSubtitles.Status)`. Its `state` is `applied`, `error` (with a
   `message`), `synced`, `working` or `off`, and every status has a `time` (Unix seconds): wait for
   one newer than your call, which is how a caller knows it is the answer.
+
+## Prepared subtitle files only
+
+Both selected tracks must already exist as independent SRT, ASS/SSA or WebVTT files. Download
+missing subtitles before viewing. Embedded tracks are shown as unavailable and cannot be fetched,
+even from a legacy session or warm extraction cache. Loading is bounded to three seconds; a
+missing or unreadable pair leaves the player's current subtitles alone. No extraction, video
+scan, provider search or audio alignment can be initiated by this add-on.
+
+Loaded files are snapshotted for the playback session and reused for timing/layout changes.
+“Refresh prepared subtitle files” discovers replacements explicitly. Starting a video again
+also reads its current files. Local per-track offsets remain available; Bazarr audio alignment
+and its credentials have been removed from Kodi.
 
 ## ⚙️ How it works
 

@@ -29,30 +29,6 @@ msgctxt "#30105"
 msgid "A Jellyfin API key (Dashboard > API keys)."
 msgstr ""
 
-msgctxt "#30106"
-msgid "Download time limit (seconds)"
-msgstr ""
-
-msgctxt "#30107"
-msgid "The first download of a track inside the video makes Jellyfin read the whole file, which takes minutes for a big one."
-msgstr ""
-
-msgctxt "#30110"
-msgid "Bazarr (sync to audio)"
-msgstr ""
-
-msgctxt "#30111"
-msgid "Bazarr address"
-msgstr ""
-
-msgctxt "#30112"
-msgid "For \"Sync to the audio\". Leave empty if Bazarr can't be reached from this TV."
-msgstr ""
-
-msgctxt "#30113"
-msgid "Bazarr API key"
-msgstr ""
-
 msgctxt "#30200"
 msgid "Choice"
 msgstr ""

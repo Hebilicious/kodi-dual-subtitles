@@ -10,6 +10,7 @@ import urllib.request
 
 from . import languages
 from .tracks import Track, classify
+from .work import MAX_BYTES
 
 _ID_IN_URL = [re.compile(r"/(?:videos|items|audio)/([0-9a-f]{32})(?:/|$|\?)", re.IGNORECASE),
               re.compile(r"[?&](?:id|itemid|item_id)=([0-9a-f]{32})", re.IGNORECASE)]
@@ -21,7 +22,7 @@ class JellyfinError(Exception):
 
 
 class Jellyfin:
-    def __init__(self, url, api_key, device_id="kodi-dual-subtitles", version="1.0.0", timeout=20):
+    def __init__(self, url, api_key, device_id="kodi-dual-subtitles", version="1.1.0", timeout=2):
         self.url = (url or "").rstrip("/")
         self.api_key = api_key or ""
         self.device_id = device_id
@@ -45,7 +46,9 @@ class Jellyfin:
         request = urllib.request.Request(url, method=method, headers={"Authorization": auth, "Accept": "*/*"})
         try:
             with urllib.request.urlopen(request, timeout=timeout or self.timeout) as response:
-                body = response.read()
+                body = response.read(MAX_BYTES + 1)
+                if len(body) > MAX_BYTES:
+                    raise JellyfinError("subtitle response exceeds 8 MiB")
         except urllib.error.HTTPError as error:
             raise JellyfinError("Jellyfin answered %d for %s" % (error.code, path))
         except (urllib.error.URLError, OSError) as error:
@@ -76,16 +79,16 @@ class Jellyfin:
         name = _basename(playing_path)
         if not name:
             return None
-        for item in self._library_items():
-            if _basename(item.get("Path", "")) == name:
-                return self.item(item["Id"])
-        return None
+        matches = [item for item in self._library_items() if _basename(item.get("Path", "")) == name]
+        if len(matches) > 1:
+            raise JellyfinError("several videos have this file name; cannot identify the subtitle source")
+        return self.item(matches[0]["Id"]) if matches else None
 
     def _library_items(self):
         if self._library is None or time.time() - self._library_time > _LIBRARY_TTL:
             data = self._request("/Items", {"Recursive": "true", "IncludeItemTypes": "Movie,Episode,Video",
                                             "Fields": "Path", "EnableImages": "false", "EnableUserData": "false"},
-                                 timeout=60)
+                                 timeout=self.timeout)
             self._library = data.get("Items", [])
             self._library_time = time.time()
         return self._library
@@ -103,19 +106,23 @@ class Jellyfin:
         sources = info.get("MediaSources") or []
         if not sources:
             raise JellyfinError("Jellyfin lists no media source for %s" % item.get("Name", item["Id"]))
-        source = sources[0]
+        source = sources[0] if len(sources) == 1 else None
         wanted = self.id_from_url(playing_path) and _query_value(playing_path, "mediaSourceId")
         name = _basename(playing_path)
         for candidate in sources:
             if candidate.get("Id") == wanted or (name and _basename(candidate.get("Path", "")) == name):
                 source = candidate
                 break
+        if source is None:
+            raise JellyfinError("cannot identify which video version is playing")
         result = []
         for key, stream in _subtitle_streams(source):
             codec = (stream.get("Codec") or "").lower()
             usable, reason = classify(codec)
             if usable and stream.get("IsTextSubtitleStream") is False:
                 usable, reason = False, "Jellyfin says this track isn't text"
+            if not _prepared(stream):
+                usable, reason = False, "not ready: an independent subtitle file must be prepared before playback"
             result.append(Track(
                 key=key,
                 source="jellyfin",
@@ -132,29 +139,35 @@ class Jellyfin:
             ))
         return result
 
-    def fetch(self, track, timeout=600):
-        """Text of a track: ASS for styled sources, SRT for the rest.
-
-        The first fetch of an embedded track makes Jellyfin read the whole video to extract it,
-        which takes minutes for a big file; it is cached on the server afterwards.
-        """
+    def fetch(self, track, timeout=2):
+        """Read an existing external file in its native format. Embedded streams are never fetched."""
+        if not track.external or not track.usable or not track.path:
+            raise JellyfinError("not ready: only independent subtitle files can be loaded")
         item_id, source_id, _ = track.location.split("/")
-        index = self._current_index(item_id, source_id, track.key)
-        fmt = "ass" if track.styled else "srt"
-        path = "/Videos/%s/%s/Subtitles/%d/0/Stream.%s" % (item_id, source_id, index, fmt)
-        return self._request(path, timeout=timeout, raw=True), fmt
-
-    def _current_index(self, item_id, source_id, key):
-        """The stream's index now: Jellyfin numbers external subtitles first, so one added since the
-        tracks were listed (Bazarr downloading a subtitle) moves every embedded track's index."""
+        # Recheck the live stream, including IsExternal and path, before using an index that may shift.
         info = self._request("/Items/%s/PlaybackInfo" % item_id)
         for source in info.get("MediaSources") or []:
             if source.get("Id") != source_id:
                 continue
-            for stream_key, stream in _subtitle_streams(source):
-                if stream_key == key:
-                    return stream["Index"]
-        raise JellyfinError("the track is no longer in Jellyfin")
+            for key, stream in _subtitle_streams(source):
+                if key != track.key:
+                    continue
+                if not _prepared(stream) or stream.get("Path") != track.path:
+                    raise JellyfinError("the prepared subtitle file changed; refresh the tracks")
+                fmt = _file_format(stream)
+                path = "/Videos/%s/%s/Subtitles/%d/0/Stream.%s" % (item_id, source_id, stream["Index"], fmt)
+                return self._request(path, timeout=timeout, raw=True), fmt
+        raise JellyfinError("the prepared subtitle file is no longer in Jellyfin")
+
+
+def _file_format(stream):
+    return os.path.splitext(stream.get("Path") or "")[1].lstrip(".").lower()
+
+
+def _prepared(stream):
+    # .mks is a container and still invokes Jellyfin extraction, even when marked external.
+    return (stream.get("IsExternal") is True and stream.get("IsTextSubtitleStream") is not False
+            and _file_format(stream) in ("srt", "ass", "ssa", "vtt"))
 
 
 def _subtitle_streams(source):

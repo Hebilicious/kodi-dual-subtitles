@@ -40,8 +40,7 @@ class Dialog:
         if home.getProperty(OPEN_PROPERTY):
             self.kodi.log("the menu is already open")
             if not xbmc.getCondVisibility("Window.IsActive(selectdialog)"):
-                # The open menu is loading a track (a first extraction by Jellyfin takes minutes): say so,
-                # or the key seems dead.
+                # A bounded file read may still be in flight.
                 self.kodi.notify("Still loading the subtitles, the menu comes back when they are ready")
             return
         home.setProperty(OPEN_PROPERTY, "1")
@@ -53,8 +52,8 @@ class Dialog:
     def _run(self):
         try:
             session = Session.current(self.kodi)
-        except NotPlaying:
-            self.ui.ok("Dual subtitles", "Start a video first, then open this during playback.")
+        except (NotPlaying, TrackError) as error:
+            self.ui.ok("Dual subtitles", str(error))
             return
         if not session.tracks:
             # Kodi's own subtitles may still have something (a search, an image track), so they stay one press away.
@@ -108,14 +107,11 @@ class Dialog:
                                                    else "plain dialogue in our style"),
                             lambda: self._toggle_styling(session)))
         entries.append(("Font size, colour, outline and margins…", lambda: self._settings(session)))
-        for role, track in (("primary", primary), ("secondary", secondary)):
-            if track is not None and track.external and track.path:
-                entries.append(("Sync %s (%s) to the audio with Bazarr" % (role, languages.name(track.language)),
-                                lambda track=track: self._sync(session, track)))
         if session.active:
             entries.append(("Turn dual subtitles off", lambda: self._off(session)))
         # Kodi's own dialog (one track, search and download, its appearance), for a skin whose subtitle button
         # opens this one instead.
+        entries.append(("Refresh prepared subtitle files", lambda: self._refresh(session)))
         entries.append((KODI_SETTINGS, open_kodi_settings))
         for warning in session.warnings + self._kodi_warnings():
             entries.append(("[COLOR grey]%s[/COLOR]" % warning, lambda: None))
@@ -212,16 +208,11 @@ class Dialog:
         self.kodi.open_settings()
         self._apply(session)
 
-    def _sync(self, session, track):
-        progress = xbmcgui.DialogProgressBG()
-        progress.create("Dual subtitles", "Bazarr is syncing %s to the audio (about a minute)" %
-                        languages.name(track.language))
-        try:
-            session.sync(track)
-        finally:
-            progress.close()
-        self._apply(session)
-        self.kodi.notify("%s synced to the audio" % languages.name(track.language))
+    def _refresh(self, session):
+        refreshed = Session.current(self.kodi, rediscover=True)
+        session.__dict__.update(refreshed.__dict__)
+        session.choose()
+        session.save_state()
 
     def _off(self, session):
         session.off()

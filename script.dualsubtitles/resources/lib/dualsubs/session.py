@@ -8,6 +8,7 @@ folder and fetched tracks are cached there.
 Everything Kodi-specific goes through ``kodi`` (``kodiapi.Kodi``, or a fake in the tests).
 """
 
+import copy
 import hashlib
 import json
 import os
@@ -15,9 +16,9 @@ import time
 import uuid
 
 from . import assfile, jellyfin, languages, localfiles, prefs, subtitles, tracks
-from .bazarr import Bazarr, BazarrError
 from .jellyfin import JellyfinError
 from .subtitles import SubtitleError
+from . import work
 
 STATE_FILE = "session.json"
 
@@ -38,6 +39,7 @@ class Session:
     def __init__(self, kodi, playing):
         self.kodi = kodi
         self.playing = playing
+        self.playback_id = getattr(kodi, "playback_id", lambda: "")()
         self.item = {}  # Jellyfin item: Id, Name, Type, SeriesName, Path
         self.title = ""  # show or film name
         self.episode = False
@@ -50,6 +52,8 @@ class Session:
         self.active = False
         self.generation = 0
         self.token = ""
+        self._parsed = {}
+        self.request_id = ""
         self.warnings = []  # why sources were skipped, for the dialog
         self.store = prefs.Store(os.path.join(kodi.profile_dir, "prefs.json"))
 
@@ -63,10 +67,13 @@ class Session:
             raise NotPlaying("nothing is playing")
         session = cls(kodi, playing)
         state = _read_json(os.path.join(kodi.temp_dir, STATE_FILE))
-        if not rediscover and state.get("playing") == playing:
+        if not rediscover and state.get("playing") == playing and state.get("schema") == 2 and state.get("playback_id", "") == session.playback_id:
             session._restore(state)
         else:
-            session.discover()
+            try:
+                work.run(session.discover)
+            except work.DeadlineError as error:
+                raise TrackError(str(error))
         return session
 
     def _restore(self, state):
@@ -87,7 +94,7 @@ class Session:
     def save_state(self):
         os.makedirs(self.kodi.temp_dir, exist_ok=True)
         state = {
-            "playing": self.playing, "item": self.item, "title": self.title, "episode": self.episode,
+            "schema": 2, "playback_id": self.playback_id, "playing": self.playing, "item": self.item, "title": self.title, "episode": self.episode,
             "tracks": [t.to_dict() for t in self.tracks], "primary_key": self.primary_key,
             "secondary_key": self.secondary_key, "layout": self.layout, "offsets": self.offsets,
             "keep_styling": self.keep_styling, "active": self.active, "generation": self.generation,
@@ -103,7 +110,7 @@ class Session:
     def file_key(self):
         if self.item.get("Id"):
             return "jellyfin:" + self.item["Id"]
-        return "path:" + localfiles.split_path(self.playing)[1].lower()
+        return "path:" + self.playing
 
     def track(self, key):
         return next((t for t in self.tracks if t.key == key), None)
@@ -146,9 +153,6 @@ class Session:
         return jellyfin.Jellyfin(self.kodi.setting("jellyfin_url"), self.kodi.setting("jellyfin_api_key"),
                                  device_id=self.kodi.device_id, version=self.kodi.version)
 
-    def bazarr(self):
-        return Bazarr(self.kodi.setting("bazarr_url"), self.kodi.setting("bazarr_api_key"))
-
     # --- Choosing ---------------------------------------------------------------------------
 
     def choose(self, primary_language=None, secondary_language=None, layout=None):
@@ -173,7 +177,7 @@ class Session:
         self.layout = layout or title_pref.get("layout") or self.kodi.setting("layout") or "stacked"
         self.primary_key = primary.key if primary else ""
         self.secondary_key = secondary.key if secondary else ""
-        return primary is not None
+        return primary is not None and (not secondary_order or secondary is not None or self.layout == "primary-only")
 
     def remember(self):
         primary, secondary = self.primary, self.secondary
@@ -185,61 +189,58 @@ class Session:
     # --- Fetching ---------------------------------------------------------------------------
 
     def _cache_path(self, track):
-        digest = hashlib.sha1((self.file_key + "|" + track.key).encode("utf-8")).hexdigest()[:16]
-        return os.path.join(self.kodi.temp_dir, "cache", digest)
-
-    @staticmethod
-    def cacheable(track):
-        """Only a track Jellyfin extracts from the video is kept: that takes minutes, the video doesn't change, and the
-        track can't. A subtitle file is fetched again each time, in a moment: it may have been replaced (a better one
-        found, timing corrected) under the same name, and a kept copy would show the old one."""
-        return track.source == "jellyfin" and not track.external
+        # A fresh discovery has a fresh token: same-name replacements are read on refresh/playback.
+        digest = hashlib.sha256((self.file_key + "|" + self.token + "|" + track.key).encode("utf-8")).hexdigest()
+        return os.path.join(self.kodi.temp_dir, "cache", digest + ".json")
 
     def load(self, track, progress=None):
-        """Parsed text of a track; one extracted from the video is fetched once and kept in Kodi's temp folder."""
-        if not track.usable:
-            raise TrackError("%s: %s" % (track.label(), track.reason))
+        """Snapshot a prepared file for this playback session; reuse parsed cues for live edits."""
+        if not track.usable or not track.external:
+            raise TrackError("%s: not ready; an independent subtitle file is required" % track.label())
+        if track.key in self._parsed:
+            return copy.deepcopy(self._parsed[track.key])
         cache = self._cache_path(track)
-        cached = _read_json(cache + ".json") if self.cacheable(track) else {}
-        if cached.get("key") == track.key and os.path.exists(cache + ".txt"):
-            with open(cache + ".txt", encoding="utf-8") as handle:
-                text, fmt = handle.read(), cached.get("format", "")
-        elif not self.cacheable(track):
-            text, fmt = self._fetch(track, progress)
+        cached = _read_json(cache)
+        if cached.get("key") == track.key:
+            text, fmt = cached["text"], cached["format"]
         else:
             text, fmt = self._fetch(track, progress)
-            os.makedirs(os.path.dirname(cache), exist_ok=True)
-            with open(cache + ".txt", "w", encoding="utf-8") as handle:
-                handle.write(text)
-            _write_json(cache + ".json", {"key": track.key, "format": fmt})
         try:
-            return subtitles.parse(text, fmt)
+            parsed = subtitles.parse(text, fmt)
+            if len(parsed.cues) > 30000:
+                raise SubtitleError("more than 30000 subtitle cues")
         except SubtitleError as error:
             raise TrackError("%s: %s" % (track.label(), error))
+        if not cached:
+            os.makedirs(os.path.dirname(cache), exist_ok=True)
+            files = [os.path.join(os.path.dirname(cache), name) for name in os.listdir(os.path.dirname(cache))]
+            files = [name for name in files if os.path.isfile(name)]
+            for name in sorted(files, key=lambda name: os.path.getmtime(name), reverse=True)[7:]:
+                try:
+                    os.remove(name)
+                except OSError:
+                    pass
+            _write_json(cache, {"key": track.key, "text": text, "format": fmt})
+        self._parsed[track.key] = parsed
+        return copy.deepcopy(parsed)
 
     def _fetch(self, track, progress):
+        if not track.external:
+            raise TrackError("not ready: embedded subtitles cannot be fetched during playback")
         if track.source == "jellyfin":
-            if progress and not track.external:
-                progress("Jellyfin is extracting %s from the video (first time only)" %
-                         languages.name(track.language))
             try:
-                data, fmt = self.jellyfin().fetch(track, timeout=int(self.kodi.setting("fetch_timeout") or 600))
+                data, fmt = self.jellyfin().fetch(track)
             except JellyfinError as error:
-                raise TrackError("%s: download failed: %s" % (track.label(), error))
+                raise TrackError("%s: %s" % (track.label(), error))
         else:
             try:
                 data = self.kodi.read_file(track.location)
             except OSError as error:
                 raise TrackError("%s: can't read the file: %s" % (track.label(), error))
             fmt = track.codec
+        if len(data) > work.MAX_BYTES:
+            raise TrackError("subtitle file exceeds 8 MiB")
         return subtitles.decode(data, track.language), fmt
-
-    def forget_cache(self, track):
-        for suffix in (".txt", ".json"):
-            try:
-                os.remove(self._cache_path(track) + suffix)
-            except OSError:
-                pass
 
     # --- Applying ---------------------------------------------------------------------------
 
@@ -271,15 +272,23 @@ class Session:
     def apply(self, progress=None, remember=True):
         """Build the file and load it into the player; the video keeps playing (F8)."""
         started = time.time()
-        text = self.build(progress)
-        if self.kodi.playing_file() != self.playing:
+        operation = uuid.uuid4().hex
+        operation_path = os.path.join(self.kodi.temp_dir, "operation.json")
+        _write_json(operation_path, {"id": operation})
+        try:
+            text = work.run(lambda: self.build(progress), cancelled=lambda: self.kodi.playing_file() != self.playing)
+        except work.DeadlineError as error:
+            raise TrackError(str(error))
+        if _read_json(operation_path).get("id") != operation:
+            raise Superseded("a newer subtitle request replaced this one")
+        if self.kodi.playing_file() != self.playing or getattr(self.kodi, "playback_id", lambda: "")() != self.playback_id:
             raise NotPlaying("the video changed")
         state = _read_json(os.path.join(self.kodi.temp_dir, STATE_FILE))
         if state.get("playing") == self.playing and state.get("token") != self.token and \
                 state.get("time", 0) > started and state.get("active"):
             raise Superseded("another change was applied meanwhile")
         self.generation += 1
-        path = os.path.join(self.kodi.temp_dir, "Dual subtitles %d.ass" % self.generation)
+        path = os.path.join(self.kodi.temp_dir, "Dual subtitles %s.ass" % operation[:12])
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(text)
         self.kodi.load_subtitles(path)
@@ -307,20 +316,6 @@ class Session:
                 except OSError:
                     pass
 
-    # --- Sync (F10) -------------------------------------------------------------------------
-
-    def sync(self, track):
-        """Have Bazarr re-sync a subtitle file to the audio, then reload it."""
-        if not (track.external and track.path):
-            raise TrackError("only subtitle files on the server can be synced; %s is inside the video"
-                             % track.label())
-        try:
-            self.bazarr().sync(track.path, self.item.get("Path") or "", track.language, self.episode)
-        except BazarrError as error:
-            raise TrackError("sync failed: %s" % error)
-        self.forget_cache(track)
-        self.offsets.pop(track.key, None)
-
     # --- Describing -------------------------------------------------------------------------
 
     def describe(self):
@@ -340,7 +335,7 @@ class Session:
             return {"key": track.key, "language": track.language, "label": track.label(),
                     "offset_ms": self.offsets.get(track.key, 0)}
 
-        return {"state": "applied" if self.active else "off", "title": self.title, "playing": public_path(self.playing),
+        return {"request_id": self.request_id, "state": "applied" if self.active else "off", "title": self.title, "playing": public_path(self.playing),
                 "primary": track_status(self.primary), "secondary": track_status(self.secondary),
                 "layout": self.layout, "warnings": self.warnings, "time": int(time.time())}
 
@@ -359,7 +354,7 @@ def _read_json(path):
 
 
 def _write_json(path, data):
-    temporary = path + ".tmp"
+    temporary = path + "." + uuid.uuid4().hex + ".tmp"
     with open(temporary, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False)
     os.replace(temporary, path)
